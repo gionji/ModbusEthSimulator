@@ -36,7 +36,7 @@ logging.basicConfig(format=FORMAT)
 log = logging.getLogger()
 log.setLevel(logging.DEBUG)
 
-UNIT = 0x1
+UNIT = 0x01
 
 
 def run_sync_client():
@@ -52,13 +52,13 @@ def run_sync_client():
     # individual request. This can be done by specifying the `unit` parameter
     # which defaults to `0x00`
     # ----------------------------------------------------------------------- #
-    log.debug("Reading Coils")
-    rr = client.read_coils(1, 1, unit=UNIT)
-    log.debug(rr)
+    
+    data  = getChargeControllerData(client, modbusUnit=0x01)
+    data2 = getRelayBoxData(client, modbusUnit=0x09)
+    print( "\nCC:  ", data)
+    print( "\nRB:  ", data2)
 
 
-    data = getChargeControllerData(client, modbusUnit=0x01)
-    print( data )
     # ----------------------------------------------------------------------- #
     # close the client
     # ----------------------------------------------------------------------- #
@@ -111,6 +111,45 @@ def getChargeControllerData( client, modbusUnit):
             raise e
 
     return data
+
+
+def getRelayBoxData( client, modbusUnit):
+    data = {'type':'relaybox'}
+
+    if client != None:
+        try:    
+            # read registers. Start at 0 for convenience
+            rr = client.read_holding_registers(0,18, unit=modbusUnit)
+            v_scale = float(78.421 * 2**(-15))
+
+            data[ fds.LABEL_RB_VB     ]        = rr.registers[0] * v_scale
+            data[ fds.LABEL_RB_ADC_VCH_1 ]     = rr.registers[1] * v_scale
+            data[ fds.LABEL_RB_ADC_VCH_2 ]     = rr.registers[2] * v_scale
+            data[ fds.LABEL_RB_ADC_VCH_3 ]     = rr.registers[3] * v_scale
+            data[ fds.LABEL_RB_ADC_VCH_4 ]     = rr.registers[4] * v_scale
+            data[ fds.LABEL_RB_T_MOD ]         = rr.registers[5]
+            data[ fds.LABEL_RB_GLOBAL_FAULTS ] = rr.registers[6]
+            data[ fds.LABEL_RB_GLOBAL_ALARMS ] = rr.registers[7]
+            data[ fds.LABEL_RB_HOURMETER_HI ]  = rr.registers[8]
+            data[ fds.LABEL_RB_HOURMETER_LO ]  = rr.registers[9]
+            data[ fds.LABEL_RB_CH_FAULTS_1 ]   = rr.registers[10]
+            data[ fds.LABEL_RB_CH_FAULTS_2 ]   = rr.registers[11]
+            data[ fds.LABEL_RB_CH_FAULTS_3 ]   = rr.registers[12]
+            data[ fds.LABEL_RB_CH_FAULTS_4 ]   = rr.registers[13]
+            data[ fds.LABEL_RB_CH_ALARMS_1 ]   = rr.registers[14]
+            data[ fds.LABEL_RB_CH_ALARMS_2 ]   = rr.registers[15]
+            data[ fds.LABEL_RB_CH_ALARMS_3 ]   = rr.registers[16]
+            data[ fds.LABEL_RB_CH_ALARMS_4 ]   = rr.registers[17]
+        except ModbusIOException as e:
+            logging.error('Relaybox: modbusIOException')
+            raise e
+        except Exception as e:
+            logging.error('Relaybox: unpredicted exception')
+            raise e
+
+    return data
+
+
 
 
 if __name__ == "__main__":

@@ -61,23 +61,9 @@ class updaterThread (threading.Thread):
 
 
 
-
-def updating_writer(self, a):
-    print("/// updating the context")
-    context  = a # retrieve form args the context obj
-
-    register = 0x03    #  to read holding regsters
-    slave_id = 0x01 # it's the unit id
-    address  = 0 # pstarting address
-    count_off = 80
-
-    values   = context[slave_id].getValues(register, address, count=count_off)
-    values   = [random.randint(30, 50)  for v in values]
-
-    print( values )
-
-    log.debug("new values: " + str(values))
-    context[slave_id].setValues(register, address, values)
+def updating_writer(self,a):
+    cc_updater(  a )
+    rb_updater(  a )
 
 
 '''
@@ -99,7 +85,7 @@ Iscaling = whole.fraction = [I_PU hi].[I_PU lo]
 See the V_PU scaling example above
 '''
 
-def cc_updater(self, a):
+def cc_updater( a):
     print("/// updating the context")
     context  = a # retrieve form args the context obj
 
@@ -138,7 +124,7 @@ def cc_updater(self, a):
     values[ 65 ] = int(val / v_scale)  # LABEL_CC_MAXVB_DAILY
     values[ 71 ] = int(val)  # LABEL_CC_MINTB_DAILY
     values[ 72 ] = int(val)  # LABEL_CC_MAXTB_DAILY
-    values[ 72 ] = random.randint(0, 64)  # LABEL_CC_DIPSWITCHES
+    values[ 48 ] = random.randint(0, 64)  # LABEL_CC_DIPSWITCHES
 
     # settare i rance veri
 
@@ -148,17 +134,65 @@ def cc_updater(self, a):
     context[slave_id].setValues(register, address, values)
 
 
+def rb_updater( a):
+    print("/// updating the context")
+    context  = a # retrieve form args the context obj
+
+    register = 0x03    #  to read holding regsters
+    slave_id = 0x09 # it's the unit id
+    address  = 0 # pstarting address
+    count_off = 18
+
+    v_scale = float(78.421 * 2**(-15))
+    values   = context[slave_id].getValues(register, address, count=count_off)
+
+    val = random.randint(30, 50)
+
+    values[ 0 ] = int( val / v_scale)
+    values[ 1 ] = int( val / v_scale)
+    values[ 2 ] = int( val / v_scale)
+    values[ 3 ] = int( val / v_scale)
+    values[ 4 ] = int( val / v_scale)
+    values[ 5 ] = int( val )
+    values[ 6 ] = int( val )
+    values[ 7 ] = int( val )
+    values[ 8 ] = int( val )
+    values[ 9 ] = int( val )
+    values[ 10 ] = int( val )
+    values[ 11 ] = int( val )
+    values[ 12 ] = int( val )
+    values[ 13 ] = int( val )
+    values[ 14 ] = int( val )
+    values[ 15 ] = int( val )
+    values[ 16 ] = int( val )
+    values[ 17 ] = int( val )
+
+    print( values )
+
+    log.debug("new values: " + str(values))
+    context[slave_id].setValues(register, address, values)
+
 
 def run_server():
 
-    store = ModbusSlaveContext(
-        di=ModbusSequentialDataBlock(0,  [30] * 100), # discrete input space
-        co=ModbusSequentialDataBlock(0,  [40] * 100), # c  o  space
-        hr = ModbusSequentialDataBlock(0, [17] * 81) , # holding registers space [start addr, value, addr_offset]
-        ir=ModbusSequentialDataBlock(0,  [50] * 100),
+    cc_store = ModbusSlaveContext(
+        di = ModbusSequentialDataBlock(0,  [30] * 100), # discrete input space
+        co = ModbusSequentialDataBlock(0,  [40] * 100), # c  o  space
+        hr = ModbusSequentialDataBlock(0, [0] * 81) , # 
+        ir = ModbusSequentialDataBlock(0,  [50] * 100),
         ) # input registers space
 
-    context = ModbusServerContext(slaves=store, single=True)
+    rb_store = ModbusSlaveContext(
+        di = ModbusSequentialDataBlock(0,  [30] * 100), # discrete input space
+        co = ModbusSequentialDataBlock(0,  [40] * 100), # c  o  space
+        hr = ModbusSequentialDataBlock(0, [1] * 20) , # 
+        ir = ModbusSequentialDataBlock(0,  [50] * 100),
+        ) # input registers space
+
+
+    store = {0x01 : cc_store , 0x09 : rb_store }
+
+    context = ModbusServerContext(slaves=store, single=False)
 
     identity = ModbusDeviceIdentification()
     identity.VendorName  = 'Gionji'
@@ -170,7 +204,7 @@ def run_server():
 
     # UPDATER
     time = 1
-    updater = updaterThread(context, cc_updater)
+    updater = updaterThread(context, updating_writer)
     updater.start()
 
     #updating_writer(context)
